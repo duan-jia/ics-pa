@@ -1,5 +1,5 @@
 STUID = 211220000
-STUNAME = 张三
+STUNAME = jackaaron
 
 # DO NOT modify the following code!!!
 
