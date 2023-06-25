@@ -17,6 +17,7 @@
 #include <cpu/cpu.h>
 #include <readline/readline.h>
 #include <readline/history.h>
+#include <memory/paddr.h>
 #include "sdb.h"
 
 static int is_batch_mode = false;
@@ -49,10 +50,53 @@ static int cmd_c(char *args) {
 
 
 static int cmd_q(char *args) {
-  return -1;
+  nemu_state.state = NEMU_END;
+	return -1;
 }
 
 static int cmd_help(char *args);
+
+static int cmd_si(char *args) {
+	char *arg = strtok(NULL, " ");
+	unsigned step;
+	if(arg == NULL)step = 1;
+	else step = (unsigned)atoi(arg);
+	
+	cpu_exec(step);
+	return 0;
+}
+
+static int cmd_info(char *args) {
+	char *arg = strtok(NULL, " ");
+	if(arg == NULL) {
+		printf("info what? register or watch point?\n");
+	}
+	else if(arg[0] == 'r') {
+		isa_reg_display();
+	}
+	return 0;
+}
+
+static int cmd_x(char *args) {
+	char *arg1 = strtok(NULL, " ");
+	char *arg2 = strtok(NULL, " ");
+	int N = 0;
+	vaddr_t addr = 0;
+
+	if(arg1 == NULL || arg2 == NULL){
+		printf("invalid input!\n");
+	}
+	else {
+		N = (vaddr_t)atoi(arg1);
+    addr = (vaddr_t)strtoll(arg2, NULL, 16);
+		//printf("the input value is %u \t %x \n", N, addr);
+		for(int i = 0; i < N; i++,addr++){
+			printf("the value of 0x%lu is 0x%lu \n", addr, paddr_read(addr, 8));
+		}
+	}
+
+	return 0;
+}
 
 static struct {
   const char *name;
@@ -62,7 +106,9 @@ static struct {
   { "help", "Display information about all supported commands", cmd_help },
   { "c", "Continue the execution of the program", cmd_c },
   { "q", "Exit NEMU", cmd_q },
-
+	{"si", "Single step", cmd_si },
+	{"info", "Print the status of program", cmd_info },
+	{"x", "Scan the memery", cmd_x }
   /* TODO: Add more commands */
 
 };
@@ -78,11 +124,11 @@ static int cmd_help(char *args) {
     /* no argument given */
     for (i = 0; i < NR_CMD; i ++) {
       printf("%s - %s\n", cmd_table[i].name, cmd_table[i].description);
-    }
-  }
-  else {
-    for (i = 0; i < NR_CMD; i ++) {
-      if (strcmp(arg, cmd_table[i].name) == 0) {
+     }
+   }
+  else { 
+    for ( i = 0; i < NR_CMD; i ++) {
+      if ( strcmp(arg, cmd_table[i].name) == 0) {
         printf("%s - %s\n", cmd_table[i].name, cmd_table[i].description);
         return 0;
       }
