@@ -98,6 +98,15 @@ static int cmd_x(char *args) {
 	return 0;
 }
 
+static int cmd_p(char *args) {
+	char *arg1 = strtok(NULL, "\"");
+	bool is_success = true;
+	long unsigned result = expr(arg1, &is_success);
+	Log(" %s  result is %lu ", arg1, result);
+
+	return 0;
+}
+
 static struct {
   const char *name;
   const char *description;
@@ -108,8 +117,9 @@ static struct {
   { "q", "Exit NEMU", cmd_q },
 	{"si", "Single step", cmd_si },
 	{"info", "Print the status of program", cmd_info },
-	{"x", "Scan the memery", cmd_x }
-  /* TODO: Add more commands */
+	{"x", "Scan the memery", cmd_x },
+  {"p", "calculate the expression", cmd_p }
+ 	/* TODO: Add more commands */
 
 };
 
