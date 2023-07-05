@@ -30,10 +30,46 @@ static char *code_format =
 "  printf(\"%%u\", result); "
 "  return 0; "
 "}";
+int tail = 0;
+
+static int choose(int n) {
+	return rand() % n;
+}
+
+static void gen_num() {
+	buf[tail++] =  choose(10) + '0';
+	if(buf[tail - 1] == '0') return;
+	switch(choose(3)) {
+		case 1: buf[tail++] =  choose(10) + '0';
+		case 2: buf[tail++] =  choose(10) + '0';
+		case 3: buf[tail++] =  choose(10) + '0';break;
+	}
+}
+
+static void gen_rand_op() {
+	int temp = rand() % 4;
+	switch(temp) {
+		case 0:	buf[tail++] = '+';break;
+		case 1:	buf[tail++] = '-';break;
+		case 2:	buf[tail++] = '*';break;
+		case 3:	buf[tail++] = '/';break;
+		default: assert(0);
+	}
+}
+
+static void gen(char ch) {
+	buf[tail++] = ch;
+}
 
 static void gen_rand_expr() {
-  buf[0] = '\0';
-}
+	if(tail > 60000) return;
+	switch (rand() % 3) {
+    case 0: gen_num(); break;
+    case 1: gen('('); gen_rand_expr(); gen(')'); break;
+    default: gen_rand_expr(); gen_rand_op(); gen_rand_expr(); break;
+	}
+	buf[tail] = '\0';
+} 
 
 int main(int argc, char *argv[]) {
   int seed = time(0);
@@ -44,7 +80,8 @@ int main(int argc, char *argv[]) {
   }
   int i;
   for (i = 0; i < loop; i ++) {
-    gen_rand_expr();
+    tail = 0;
+		gen_rand_expr();
 
     sprintf(code_buf, code_format, buf);
 

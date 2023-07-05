@@ -194,7 +194,10 @@ word_t eval(int p, int q){
 			case '*' :
 				return val1 * val2;
 			case '/' :
-				assert(val2 != 0);
+				if(val2 == 0){
+					printf("the dividend num cannot be zero, asshole");
+					return -1;
+				}
 				return val1 / val2;
 			default : assert(0);
 		}
