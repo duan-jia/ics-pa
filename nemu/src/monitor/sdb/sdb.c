@@ -19,6 +19,7 @@
 #include <readline/history.h>
 #include <memory/paddr.h>
 #include "sdb.h"
+#include "watchpoint.h"
 
 static int is_batch_mode = false;
 
@@ -74,6 +75,9 @@ static int cmd_info(char *args) {
 	else if(arg[0] == 'r') {
 		isa_reg_display();
 	}
+	else if(arg[0] == 'w') {
+		print_all_wps();
+	}
 	return 0;
 }
 
@@ -99,11 +103,33 @@ static int cmd_x(char *args) {
 }
 
 static int cmd_p(char *args) {
-	char *arg1 = strtok(NULL, "\"");
 	bool is_success = true;
-	long unsigned result = expr(arg1, &is_success);
-	Log(" %s  result is %lu ", arg1, result);
+	long unsigned result = expr(args, &is_success);
+	Log(" %s  result is %lu ", args, result);
 
+	return 0;
+}
+
+static int cmd_watch(char *args) {
+	char *arg1 = strtok(NULL, " ");
+	bool is_success = false;
+	word_t val = expr(arg1, &is_success);
+	if(is_success){
+		WP *p = new_wp();
+		memcpy(p->exp, arg1, sizeof(char) * strlen(arg1));
+		p->exp_val = val;
+		printf("the watchpoint %d set at %s (value = %lu)\n", p->NO, p->exp, p->exp_val);	
+	}
+	else {
+		printf("Invalid Expression!!!\n");
+	}
+	return 0;
+}
+
+static int cmd_d(char *args) {
+	char *arg1 = strtok(NULL, " ");
+	int n = atoi(arg1);
+	delete_wp(n);
 	return 0;
 }
 
@@ -118,7 +144,9 @@ static struct {
 	{"si", "Single step", cmd_si },
 	{"info", "Print the status of program", cmd_info },
 	{"x", "Scan the memery", cmd_x },
-  {"p", "calculate the expression", cmd_p }
+  {"p", "calculate the expression", cmd_p },
+	{"watch", "add watch point", cmd_watch},
+	{"d", "delete the watch point", cmd_d}
  	/* TODO: Add more commands */
 
 };

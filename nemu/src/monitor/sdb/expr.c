@@ -14,14 +14,14 @@
 ***************************************************************************************/
 
 #include <isa.h>
-
+#include <./memory/paddr.h>
 /* We use the POSIX regex functions to process regular expressions.
  * Type 'man regex' for more information about POSIX regex functions.
  */
 #include <regex.h>
 
 enum {
-  TK_NOTYPE = 256, TK_EQ, TK_UEQ, TK_DEC
+  TK_NOTYPE = 256, TK_EQ, TK_UEQ, TK_AND, TK_DEREF, TK_DEC, TK_HEX, TK_REG
 
   /* TODO: Add more token types */
 
@@ -40,12 +40,15 @@ static struct rule {
   {"\\+", '+'},         // plus
   {"==", TK_EQ},        // equal
 	{"!=", TK_UEQ},       // unequal
+	{"&&", TK_AND},
 	{"\\-", '-'},
 	{"\\*", '*'},
 	{"/", '/'},
 	{"\\(", '('},
 	{"\\)", ')'},
-	{"[0-9]+", TK_DEC}
+	{"0x[A-Fa-f0-9]+", TK_HEX},
+	{"[0-9]+", TK_DEC},
+	{"\\$[a-zA-Z0-9]+", TK_REG}
 };
 
 #define NR_REGEX ARRLEN(rules)
@@ -129,12 +132,12 @@ bool check_parenthesis(int p, int q) {
 	assert(p < q);
 	int par_level = 0;
 	for(int i = p; i <= q; i++) {
-		if(tokens[p].type == '(') {
+		if(tokens[i].type == '(') {
 			par_level++;
 		}
-		else if(tokens[p].type == ')') {
+		else if(tokens[i].type == ')') {
 			par_level--;
-			assert(par_level > 0);
+			assert(par_level >= 0);
 			if(par_level == 0 && i != q) {
 				return false;
 			}
@@ -147,7 +150,7 @@ bool check_parenthesis(int p, int q) {
 }
 
 int find_main_op(int p, int q) {
-	int main_op = -1, par_level = 0, priority = 2;
+	int main_op = -1, par_level = 0, priority = 4;
 	for(int i = p; i <= q; i++) {
 		if(tokens[i].type == TK_DEC) continue;
 		else if(tokens[i].type == '(') {
@@ -159,12 +162,24 @@ int find_main_op(int p, int q) {
 			continue;
 		}
 		if(par_level) continue;
-
-		if((tokens[i].type == '*' || tokens[i].type == '/') && priority >= 1) {
+		
+		if((tokens[i].type == TK_DEREF) && priority >= 4) {
+			main_op = i;
+			priority = 4;
+		}
+		else if((tokens[i].type == '*' || tokens[i].type == '/') && priority >= 3) {
+			main_op = i;
+			priority = 3;
+		}
+		else if((tokens[i].type == '+' || tokens[i].type == '-') && priority >= 2) {
+			main_op = i;
+			priority = 2;
+		}
+		else if((tokens[i].type == TK_AND) && priority >= 1) {
 			main_op = i;
 			priority = 1;
 		}
-		else if((tokens[i].type == '+' || tokens[i].type == '-') && priority >= 0) {
+		else if((tokens[i].type == TK_EQ || tokens[i].type == TK_UEQ) && priority >= 0) {
 			main_op = i;
 			priority = 0;
 		}
@@ -177,7 +192,22 @@ word_t eval(int p, int q){
 		return -1;
 	}
 	else if (p == q) {
-		return strtoul(tokens[p].str, NULL, 10);
+		if(tokens[p].type == TK_DEC) {
+			return strtoul(tokens[p].str, NULL, 10);
+		}
+		else if(tokens[p].type == TK_HEX) {
+			return strtoul(tokens[p].str, NULL, 16);
+		}
+		else if(tokens[p].type == TK_REG) {
+			bool success = false;
+			word_t val = isa_reg_str2val(tokens[p].str, &success);
+			if(success == false) {
+				printf("Invalid Reg Expression\n");
+				return 0;
+			}
+			return val;
+		}
+		assert(0);
 	}
 	else if(check_parenthesis(p, q)) {
 		return eval(p + 1, q - 1);
@@ -199,11 +229,18 @@ word_t eval(int p, int q){
 					return -1;
 				}
 				return val1 / val2;
+			case TK_DEREF :
+				return paddr_read(val2, 1);//bugs: the val1 is useless
+			case TK_AND :
+				return val1 && val2;
+			case TK_EQ :
+				return val1 == val2;
+			case TK_UEQ :
+				return val1 != val2;
 			default : assert(0);
 		}
 	}
 	return -1;
-
 }
 
 word_t expr(char *e, bool *success) {
@@ -211,11 +248,16 @@ word_t expr(char *e, bool *success) {
     *success = false;
     return 0;
   }
-  
+  *success = true;
   /* TODO: Insert codes to evaluate the expression. */
   //TODO();
-	assert(*success == true);
-
-
+	for(int i = 0; i < nr_token; i++) {
+		if(tokens[i].type == '*' && (i == 0 && 
+					(tokens[i - 1].type != TK_DEC &&
+					 tokens[i - 1].type != TK_HEX &&
+					 tokens[i - 1].type != ')'))) {
+					tokens[i].type = TK_DEREF;
+		}
+	}
   return eval(0, nr_token - 1);
 }

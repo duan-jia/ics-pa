@@ -14,20 +14,39 @@
 ***************************************************************************************/
 
 #include "sdb.h"
+#include "watchpoint.h"
 
 #define NR_WP 32
-
-typedef struct watchpoint {
-  int NO;
-  struct watchpoint *next;
-
-  /* TODO: Add more members if necessary */
-
-} WP;
 
 static WP wp_pool[NR_WP] = {};
 static WP *head = NULL, *free_ = NULL;
 
+WP* new_wp() { 
+	assert(free_ != NULL);
+	WP *temp = free_;
+	free_ = free_->next;
+	temp->next = head;
+	head = temp;
+	temp = NULL;
+	return head;
+}
+
+void free_wp(WP *wp) {
+	assert(head != NULL);
+	if(head == wp) {
+		head = wp->next;
+	}
+	else {
+		WP *temp = head;
+		while(temp->next != NULL && temp->next != wp) {
+			temp = temp->next;
+		}
+		//assert(temp->next != NULL);
+		temp->next = wp->next;
+	}
+	wp->next = free_;
+	free_ = wp;
+}
 void init_wp_pool() {
   int i;
   for (i = 0; i < NR_WP; i ++) {
@@ -40,4 +59,42 @@ void init_wp_pool() {
 }
 
 /* TODO: Implement the functionality of watchpoint */
+bool check_all_wps() {
+	WP *temp = head;
+	while(temp) {
+		bool is_success = false;
+		word_t val = expr(temp->exp, &is_success);
+		assert(is_success);
+		if(val != temp->exp_val) {
+			Log("Program hits watchpoint %d:%s\n", temp->NO, temp->exp);
+			return false;
+		}
+		temp = temp->next;
+	}
+	return true;
+}
 
+void print_all_wps() {
+	WP *temp = head;
+	while(temp) {
+		Log("watchpoint %d:%s\n", temp->NO, temp->exp);
+		temp = temp->next;
+	}
+}
+
+void delete_wp(int n) {
+	WP *temp = head;
+	while(temp) {
+		if(temp->NO == n) {
+			free_wp(temp);
+			printf("the watchpoint %d is successfully delete\n", n);
+			break;
+		}
+		else {
+			temp = temp->next;
+		}
+	}
+	if(temp == NULL) {
+		printf("Error:cannot find the watchpoint %d \n", n);
+	}
+}
